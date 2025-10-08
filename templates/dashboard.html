@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Kamera</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 2em; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 2em; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        #device-list { list-style: none; padding: 0; }
+        #device-list li { background: #e9ecef; margin: 0.5em 0; padding: 1em; border-radius: 5px; }
+        #device-list a { text-decoration: none; color: #007bff; font-weight: bold; font-size: 1.2em;}
+        #status { color: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Perangkat Aktif</h1>
+        <p id="status">Memuat daftar perangkat...</p>
+        <ul id="device-list"></ul>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const deviceList = document.getElementById('device-list');
+        const statusText = document.getElementById('status');
+
+        socket.on('update_devices', (devices) => {
+            deviceList.innerHTML = '';
+            if (devices.length > 0) {
+                statusText.textContent = 'Klik pada ID perangkat untuk melihat streaming:';
+                devices.forEach(id => {
+                    const listItem = document.createElement('li');
+                    const link = document.createElement('a');
+                    link.href = `/${id}`;
+                    link.textContent = id;
+                    link.target = '_blank';
+                    listItem.appendChild(link);
+                    deviceList.appendChild(listItem);
+                });
+            } else {
+                statusText.textContent = 'Tidak ada perangkat aktif. Menunggu koneksi...';
+            }
+        });
+
+        fetch('/api/devices')
+            .then(response => response.json())
+            .then(devices => socket.emit('update_devices', devices));
+    </script>
+</body>
+</html>

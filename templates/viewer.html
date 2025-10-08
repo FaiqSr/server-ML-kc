@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Streaming Viewer</title>
+    <style>
+        body { font-family: sans-serif; background: #222; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: white; }
+        h1 { margin-bottom: 1em; }
+        #video-stream { border: 2px solid #555; background: #000; min-width: 640px; min-height: 480px; }
+    </style>
+</head>
+<body>
+    <h1 id="title">Menghubungkan ke perangkat...</h1>
+    <img id="video-stream" src="" alt="Video Stream">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
+    <script>
+        const deviceId = "{{ device_id }}";
+        const videoStream = document.getElementById('video-stream');
+        const title = document.getElementById('title');
+        title.textContent = `Streaming dari: ${deviceId}`;
+        document.title = `Stream - ${deviceId}`;
+
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('Terhubung ke server, bergabung ke room:', deviceId);
+            socket.emit('join_room', deviceId);
+        });
+
+        socket.on('processed_frame_to_browser', (b64_string) => {
+            videoStream.src = `data:image/jpeg;base64,${b64_string}`;
+        });
+    </script>
+</body>
+</html>
