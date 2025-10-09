@@ -2,34 +2,122 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Streaming Viewer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Viewer - {{ device_id }}</title>
     <style>
-        body { font-family: sans-serif; background: #222; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: white; }
-        h1 { margin-bottom: 1em; }
-        #video-stream { border: 2px solid #555; background: #000; min-width: 640px; min-height: 480px; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212; 
+            color: #e0e0e0; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .header {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        h1 { margin: 0; font-size: 1.5rem; }
+        .stream-container {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 20px;
+            width: 100%;
+            height: 100%;
+            max-width: 1800px;
+        }
+        .stream-box {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #1e1e1e;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .stream-box h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            color: #bb86fc;
+        }
+        .video-stream {
+            display: block;
+            background-color: #000;
+            border: 2px solid #333;
+            border-radius: 8px;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 4 / 3;
+            object-fit: contain; /* Agar gambar tidak terdistorsi */
+        }
+        .back-link {
+            position: absolute;
+            bottom: 20px;
+            color: #03dac6;
+            text-decoration: none;
+            font-size: 1.1rem;
+        }
     </style>
 </head>
 <body>
-    <h1 id="title">Menghubungkan ke perangkat...</h1>
-    <img id="video-stream" src="" alt="Video Stream">
+    <div class="header">
+        <h1>Streaming dari: <strong>{{ device_id }}</strong></h1>
+    </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
+    <div class="stream-container">
+        <div class="stream-box">
+            <h2>Kamera RGB (Deteksi AI)</h2>
+            <img id="raspicam-stream" class="video-stream" src="" alt="Live RGB Stream">
+        </div>
+        <div class="stream-box">
+            <h2>Kamera Thermal</h2>
+            <img id="thermal-stream" class="video-stream" src="" alt="Live Thermal Stream">
+        </div>
+    </div>
+
+    <a href="/" class="back-link">Kembali ke Dashboard</a>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
-        const deviceId = "{{ device_id }}";
-        const videoStream = document.getElementById('video-stream');
-        const title = document.getElementById('title');
-        title.textContent = `Streaming dari: ${deviceId}`;
-        document.title = `Stream - ${deviceId}`;
+        document.addEventListener("DOMContentLoaded", () => {
+            const deviceId = "{{ device_id }}";
+            const socket = io();
 
-        const socket = io();
+            const raspicamStream = document.getElementById('raspicam-stream');
+            const thermalStream = document.getElementById('thermal-stream');
 
-        socket.on('connect', () => {
-            console.log('Terhubung ke server, bergabung ke room:', deviceId);
-            socket.emit('join_room', deviceId);
-        });
+            socket.on('connect', () => {
+                console.log(`Terhubung ke server, bergabung ke room: ${deviceId}`);
+                socket.emit('join_room', deviceId);
+            });
 
-        socket.on('processed_frame_to_browser', (b64_string) => {
-            videoStream.src = `data:image/jpeg;base64,${b64_string}`;
+            // Event baru untuk menerima kedua stream
+            socket.on('update_streams', (payload) => {
+                // Update stream raspicam jika ada datanya
+                if (payload.raspicam) {
+                    raspicamStream.src = `data:image/jpeg;base64,${payload.raspicam}`;
+                }
+                // Update stream thermal jika ada datanya
+                if (payload.thermal) {
+                    thermalStream.src = `data:image/jpeg;base64,${payload.thermal}`;
+                }
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Terputus dari server.');
+                // Opsional: tampilkan pesan atau placeholder saat terputus
+                raspicamStream.src = "";
+                thermalStream.src = "";
+            });
         });
     </script>
 </body>
