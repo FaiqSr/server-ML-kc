@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Viewer - {{ device_id }}</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <style>
+        /* ... (CSS Anda yang sudah bagus) ... */
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #121212; 
@@ -12,7 +14,7 @@
             display: flex; 
             flex-direction: column; 
             align-items: center; 
-            height: 100vh; 
+            min-height: 100vh;
             margin: 0; 
             padding: 20px;
             box-sizing: border-box;
@@ -22,16 +24,23 @@
             text-align: center;
             margin-bottom: 20px;
         }
-        h1 { margin: 0; font-size: 1.5rem; }
+        h1 { margin: 0; font-size: 1.5rem; color: #03dac6;}
+        
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 1800px;
+            flex: 1;
+        }
+
         .stream-container {
             display: flex;
             flex-direction: row;
             justify-content: center;
-            align-items: flex-start;
             gap: 20px;
-            width: 100%;
-            height: 100%;
-            max-width: 1800px;
+            flex: 1;
         }
         .stream-box {
             flex: 1;
@@ -42,6 +51,7 @@
             border-radius: 12px;
             padding: 15px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            min-width: 0;
         }
         .stream-box h2 {
             margin-top: 0;
@@ -56,67 +66,172 @@
             border-radius: 8px;
             width: 100%;
             height: auto;
-            aspect-ratio: 4 / 3;
-            object-fit: contain; /* Agar gambar tidak terdistorsi */
+            aspect-ratio: 4 / 3; 
+            object-fit: contain; 
         }
+
+        .sensor-ai-box {
+            background-color: #333333;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        .sensor-data-group {
+            display: flex;
+            gap: 40px;
+        }
+        .sensor-data h3 {
+            margin: 0 0 10px 0;
+            color: #ffc107;
+            font-size: 1.1rem;
+        }
+        .sensor-data p {
+            margin: 5px 0;
+            font-size: 1rem;
+            color: #e0e0e0;
+        }
+        #prediction-status {
+            font-size: 2rem;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.5s ease-in-out;
+            min-width: 150px;
+            text-align: center;
+        }
+        
+        .status-normal { background-color: #388e3c; color: #fff; }
+        .status-siaga { background-color: #ff9800; color: #333; }
+        .status-awas { background-color: #d32f2f; color: #fff; }
+        .status-bahaya { background-color: #b71c1c; color: #fff; animation: pulse 1s infinite; }
+        .status-na { background-color: #757575; color: #e0e0e0; }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(211, 47, 47, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); }
+        }
+
         .back-link {
-            position: absolute;
+            position: fixed;
             bottom: 20px;
+            right: 20px;
             color: #03dac6;
             text-decoration: none;
             font-size: 1.1rem;
+            background-color: #1e1e1e;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>Streaming dari: <strong>{{ device_id }}</strong></h1>
+        <h1>Streaming dan Analisis AI: <strong>{{ device_id }}</strong></h1>
     </div>
 
-    <div class="stream-container">
-        <div class="stream-box">
-            <h2>Kamera RGB (Deteksi AI)</h2>
-            <img id="raspicam-stream" class="video-stream" src="" alt="Live RGB Stream">
+    <div class="main-content">
+        <div class="stream-container">
+            <div class="stream-box">
+                <h2>Kamera RGB (Deteksi AI YOLO)</h2>
+                <img id="raspicam-stream" class="video-stream" src="" alt="Live RGB Stream">
+            </div>
+            <div class="stream-box">
+                <h2>Kamera Thermal</h2>
+                <img id="thermal-stream" class="video-stream" src="" alt="Live Thermal Stream">
+            </div>
         </div>
-        <div class="stream-box">
-            <h2>Kamera Thermal</h2>
-            <img id="thermal-stream" class="video-stream" src="" alt="Live Thermal Stream">
+
+        <div class="sensor-ai-box">
+            <div class="sensor-data-group">
+                <div class="sensor-data">
+                    <h3>Data Sensor</h3>
+                    <p>Suhu: <span id="current-temp">N/A</span> °C</p>
+                    <p>Kelembaban: <span id="current-humidity">N/A</span> %</p>
+                    <p>eCO2: <span id="current-eCO2">N/A</span> ppm</p>
+                </div>
+            </div>
+            <div>
+                <h3 style="color: #03dac6; margin-bottom: 10px;">Hasil Prediksi Status Suhu (Random Forest)</h3>
+                <div id="prediction-status" class="status-na">
+                    Menunggu data...
+                </div>
+            </div>
         </div>
-    </div>
+        </div>
 
-    <a href="/" class="back-link">Kembali ke Dashboard</a>
+    <a href="/" class="back-link">Kembali ke Dashboard &larr;</a>
 
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-            const deviceId = "{{ device_id }}";
-            const socket = io();
+            const DEVICE_ID = "{{ device_id }}";
+            const socket = io({query: {device_id: DEVICE_ID}}); 
 
             const raspicamStream = document.getElementById('raspicam-stream');
             const thermalStream = document.getElementById('thermal-stream');
+            
+            const predictionStatus = document.getElementById('prediction-status');
+            const currentTemp = document.getElementById('current-temp');
+            const currentHumidity = document.getElementById('current-humidity');
+            const currenteCO2 = document.getElementById('current-eCO2');
+
+            const STATUS_CLASSES = {
+                'Normal': 'status-normal',
+                'Siaga': 'status-siaga',
+                'Awas': 'status-awas',
+                'Bahaya': 'status-bahaya'
+            };
 
             socket.on('connect', () => {
-                console.log(`Terhubung ke server, bergabung ke room: ${deviceId}`);
-                socket.emit('join_room', deviceId);
+                console.log(`[SocketIO] Connected. Joining room: ${DEVICE_ID}`);
+                // Memberi tahu server untuk bergabung ke room perangkat
+                socket.emit('join_room', DEVICE_ID);
             });
 
-            // Event baru untuk menerima kedua stream
             socket.on('update_streams', (payload) => {
-                // Update stream raspicam jika ada datanya
+                // 1. Update Video Streams
                 if (payload.raspicam) {
                     raspicamStream.src = `data:image/jpeg;base64,${payload.raspicam}`;
                 }
-                // Update stream thermal jika ada datanya
                 if (payload.thermal) {
                     thermalStream.src = `data:image/jpeg;base64,${payload.thermal}`;
+                }
+
+                // 2. Update Sensor/AI Data (Ini yang Anda cari!)
+                if (payload.sensor) {
+                    const sensor = payload.sensor;
+
+                    // Update nilai sensor (T[C], H[%], eCO2[ppm])
+                    currentTemp.textContent = sensor.temperature_c ? sensor.temperature_c.toFixed(2) : 'N/A';
+                    currentHumidity.textContent = sensor.humidity_percent ? sensor.humidity_percent.toFixed(2) : 'N/A';
+                    currenteCO2.textContent = sensor.eCO2_ppm ? sensor.eCO2_ppm.toFixed(0) : 'N/A';
+
+                    // Update status prediksi
+                    const predictionLabel = sensor.prediction_label;
+                    
+                    // Hapus semua kelas status sebelumnya untuk menerapkan kelas yang baru
+                    predictionStatus.className = ''; 
+                    
+                    if (predictionLabel && STATUS_CLASSES[predictionLabel]) {
+                        predictionStatus.textContent = predictionLabel.toUpperCase();
+                        predictionStatus.classList.add(STATUS_CLASSES[predictionLabel]);
+                    } else {
+                        predictionStatus.textContent = 'DATA TIDAK VALID';
+                        predictionStatus.classList.add('status-na');
+                    }
                 }
             });
 
             socket.on('disconnect', () => {
-                console.log('Terputus dari server.');
-                // Opsional: tampilkan pesan atau placeholder saat terputus
+                console.log('[SocketIO] Disconnected from server.');
                 raspicamStream.src = "";
                 thermalStream.src = "";
+                predictionStatus.textContent = 'TERPUTUS';
+                predictionStatus.className = 'status-na';
             });
         });
     </script>

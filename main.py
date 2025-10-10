@@ -1,5 +1,6 @@
 # server.py
 
+import pandas as pd
 from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO, join_room
 from flask_cors import CORS
@@ -10,8 +11,17 @@ import base64
 import eventlet
 import threading
 import time
+import joblib
 
-# --- Konfigurasi Kinerja ---
+model_filename = 'random_forest_balanced_model.pkl'
+
+try:
+    loaded_model = joblib.load(model_filename)
+    print(f"Model '{model_filename}' loaded successfully.")
+except FileNotFoundError:
+    print(f"Error: Model file '{model_filename}' not found. Make sure the model file is in the same directory as app.py")
+    loaded_model = None 
+
 PROCESSING_FPS = 10
 
 # --- Inisialisasi ---
@@ -50,6 +60,37 @@ def viewer(device_id):
 def get_active_devices():
     """API untuk mendapatkan daftar perangkat yang aktif."""
     return jsonify(list(connected_pis.keys()))
+
+
+@app.route('/predict-random-forest', methods=['POST'])
+def predict():
+    if loaded_model is None:
+        return jsonify({"error": "Model not loaded"}), 500
+
+    try:
+        data = request.get_json(force=True)
+
+        input_data = pd.DataFrame(data)
+
+        predictions = loaded_model.predict(input_data)
+
+        class_labels_balanced = ['Awas', 'Bahaya', 'Normal', 'Siaga']
+
+        predicted_class_indices = predictions.argmax(axis=1)
+        predicted_labels = [class_labels_balanced[i] for i in predicted_class_indices]
+
+
+        print("Input data for prediction:")
+        print(input_data)
+        print("Received data for prediction:")
+        print(f"Predictions: {predicted_labels}")
+
+        return jsonify({"prediction": predicted_labels})
+        
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
 
 
 # --- WebSocket Event Handlers ---

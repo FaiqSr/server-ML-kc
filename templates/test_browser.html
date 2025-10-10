@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uji Kamera Browser dengan Model ML</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 20px; }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            width: 100%;
+            max-width: 1400px;
+        }
+        .feed-box {
+            flex: 1;
+            min-width: 320px;
+            max-width: 640px;
+            background-color: #1e1e1e;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        h2 { margin-top: 0; color: #bb86fc; }
+        video, img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            background-color: #000;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 1.1em;
+            color: #fdd835; /* Kuning untuk status */
+        }
+    </style>
+</head>
+<body>
+    <h1>Uji Kamera Browser dengan Model ML</h1>
+    <div id="status">Menunggu koneksi dan izin kamera...</div>
+
+    <div class="container">
+        <div class="feed-box">
+            <h2>Kamera Asli (Input)</h2>
+            <video id="webcam-feed" autoplay playsinline></video>
+        </div>
+        <div class="feed-box">
+            <h2>Hasil Prediksi ML (Output)</h2>
+            <img id="processed-feed" src="" alt="Processed Stream">
+        </div>
+    </div>
+
+    <canvas id="hidden-canvas" style="display: none;"></canvas>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const statusEl = document.getElementById('status');
+            const videoEl = document.getElementById('webcam-feed');
+            const canvasEl = document.getElementById('hidden-canvas');
+            const processedImgEl = document.getElementById('processed-feed');
+            const context = canvasEl.getContext('2d');
+
+            // --- Ganti URL ini dengan alamat server Python Anda ---
+            const mlServerUrl = `http://${window.location.hostname}:8000`;
+            const FPS = 10; // Kirim frame 10 kali per detik
+
+            statusEl.innerText = `Mencoba terhubung ke server di ${mlServerUrl}...`;
+
+            const socket = io(mlServerUrl, { transports: ['websocket'] });
+
+            socket.on('connect', () => {
+                statusEl.innerText = "✅ Terhubung ke Server! Meminta akses kamera...";
+                console.log("Terhubung ke server ML dengan session ID:", socket.id);
+                startWebcam();
+            });
+
+            socket.on('connect_error', () => {
+                statusEl.innerText = `❌ Gagal terhubung ke server di ${mlServerUrl}. Pastikan server berjalan.`;
+            });
+            
+            socket.on('disconnect', () => {
+                statusEl.innerText = "🔌 Koneksi ke server terputus.";
+            });
+
+            // Terima frame yang sudah diproses dari server
+            socket.on('update_streams', (payload) => {
+                if (payload.raspicam) {
+                    processedImgEl.src = `data:image/jpeg;base64,${payload.raspicam}`;
+                }
+            });
+
+            async function startWebcam() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    videoEl.srcObject = stream;
+                    statusEl.innerText = "🚀 Kamera aktif! Memulai pengiriman frame...";
+                    
+                    // Tunggu video mulai diputar untuk mendapatkan dimensi yang benar
+                    videoEl.onloadedmetadata = () => {
+                        canvasEl.width = videoEl.videoWidth;
+                        canvasEl.height = videoEl.videoHeight;
+
+                        // Mulai loop pengiriman frame
+                        setInterval(() => {
+                            if (socket.connected) {
+                                sendFrame();
+                            }
+                        }, 1000 / FPS);
+                    };
+
+                } catch (err) {
+                    statusEl.innerText = `❌ Error mengakses kamera: ${err.message}`;
+                    console.error("Error accessing webcam:", err);
+                }
+            }
+
+            function sendFrame() {
+                // Gambar frame video saat ini ke canvas tersembunyi
+                context.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+                // Dapatkan data gambar dari canvas sebagai Base64 string
+                const frameData = canvasEl.toDataURL('image/jpeg', 0.8); // Kualitas 80%
+                // Kirim ke server
+                socket.emit('frame_from_browser', frameData);
+            }
+        });
+    </script>
+</body>
+</html>
