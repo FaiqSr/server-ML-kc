@@ -174,17 +174,6 @@
             const raspicamStream = document.getElementById('raspicam-stream');
             const thermalStream = document.getElementById('thermal-stream');
             
-            const predictionStatus = document.getElementById('prediction-status');
-            const currentTemp = document.getElementById('current-temp');
-            const currentHumidity = document.getElementById('current-humidity');
-            const currenteCO2 = document.getElementById('current-eCO2');
-
-            const STATUS_CLASSES = {
-                'Normal': 'status-normal',
-                'Siaga': 'status-siaga',
-                'Awas': 'status-awas',
-                'Bahaya': 'status-bahaya'
-            };
 
             socket.on('connect', () => {
                 console.log(`[SocketIO] Connected. Joining room: ${DEVICE_ID}`);
@@ -200,38 +189,12 @@
                 if (payload.thermal) {
                     thermalStream.src = `data:image/jpeg;base64,${payload.thermal}`;
                 }
-
-                // 2. Update Sensor/AI Data (Ini yang Anda cari!)
-                if (payload.sensor) {
-                    const sensor = payload.sensor;
-
-                    // Update nilai sensor (T[C], H[%], eCO2[ppm])
-                    currentTemp.textContent = sensor.temperature_c ? sensor.temperature_c.toFixed(2) : 'N/A';
-                    currentHumidity.textContent = sensor.humidity_percent ? sensor.humidity_percent.toFixed(2) : 'N/A';
-                    currenteCO2.textContent = sensor.eCO2_ppm ? sensor.eCO2_ppm.toFixed(0) : 'N/A';
-
-                    // Update status prediksi
-                    const predictionLabel = sensor.prediction_label;
-                    
-                    // Hapus semua kelas status sebelumnya untuk menerapkan kelas yang baru
-                    predictionStatus.className = ''; 
-                    
-                    if (predictionLabel && STATUS_CLASSES[predictionLabel]) {
-                        predictionStatus.textContent = predictionLabel.toUpperCase();
-                        predictionStatus.classList.add(STATUS_CLASSES[predictionLabel]);
-                    } else {
-                        predictionStatus.textContent = 'DATA TIDAK VALID';
-                        predictionStatus.classList.add('status-na');
-                    }
-                }
             });
 
             socket.on('disconnect', () => {
                 console.log('[SocketIO] Disconnected from server.');
                 raspicamStream.src = "";
                 thermalStream.src = "";
-                predictionStatus.textContent = 'TERPUTUS';
-                predictionStatus.className = 'status-na';
             });
         });
     </script>

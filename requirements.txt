@@ -5,6 +5,3 @@ eventlet
 ultralytics
 opencv-python
 numpy
-scikit-learn
-joblib
-pandas

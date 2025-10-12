@@ -4,7 +4,7 @@ import time
 import random # Import random
 
 # Define the URL of your Flask endpoint
-url = 'http://192.168.137.201:8000/predict-random-forest' # Replace with your actual URL
+url = 'http://192.168.137.201:8001/predict' # Replace with your actual URL
 
 # Prepare the data you want to send for prediction
 # This should be a dictionary or a list of dictionaries
@@ -23,6 +23,8 @@ while True:
             'Humidity[%]': [random.uniform(10.0, 60.0)],     # Random humidity
             'eCO2[ppm]': [random.randint(400, 2500)]       # Random eCO2
         }
+
+        print(data_to_predict)
 
         # If you want to send multiple data points, use a list of dictionaries:
         # data_to_predict = [
