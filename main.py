@@ -11,7 +11,7 @@ from ultralytics import YOLO
 
 # --- Inisialisasi ---
 
-PROCESSING_FPS = 10
+PROCESSING_FPS = 20
 
 eventlet.monkey_patch()
 
