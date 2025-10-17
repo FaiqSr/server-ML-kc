@@ -17,7 +17,7 @@ PROCESSING_FPS = 10
 eventlet.monkey_patch()
 
 try:
-    model = YOLO('pkkm.pt')
+    model = YOLO('./model/pkkm.pt')
     print("✅ Model YOLO 'pkkm.pt' berhasil dimuat.")
 except Exception as e:
     print(f"❌ Gagal memuat model YOLO 'pkkm.pt'. Pastikan file model ada di direktori yang sama.")
@@ -200,7 +200,7 @@ def processing_thread_func():
 
 if __name__ == '__main__':
     print("==============================================")
-    print("      Server Streaming Kamera & Deteksi YOLO    ")
+    print("    Server Streaming Kamera & Deteksi YOLO    ")
     print("==============================================")
     
     # Jalankan thread pemrosesan AI di latar belakang
