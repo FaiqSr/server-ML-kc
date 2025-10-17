@@ -1,6 +1,5 @@
 import base64
 import threading
-import time
 
 import cv2
 import eventlet
